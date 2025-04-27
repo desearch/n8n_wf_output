@@ -32,21 +32,25 @@ $config = @{
             name = "Positive Integer"
             number = 5
             expected = 25
+            expectedCube = 125
         },
         @{
             name = "Zero"
             number = 0
             expected = 0
+            expectedCube = 0
         },
         @{
             name = "Negative Number"
             number = -3
             expected = 9
+            expectedCube = -27
         },
         @{
             name = "Large Number"
             number = 1000
             expected = 1000000
+            expectedCube = 1000000000
         }
     )
 }
@@ -55,7 +59,8 @@ $config = @{
 function Get-Workflows {
     param (
         [string]$environment,
-        [string]$pattern
+        [string]$pattern,
+        [bool]$deployedOnly = $false
     )
     
     $envConfig = $config.environments[$environment]
@@ -67,7 +72,16 @@ function Get-Workflows {
     try {
         $response = Invoke-RestMethod -Method Get -Uri "$($envConfig.baseUrl)/api/v1/workflows" -Headers $headers
         $workflows = $response.data
-        return $workflows | Where-Object { $_.name -like "*$pattern*" }
+        
+        if ($deployedOnly) {
+            # Filter for workflows that match the pattern AND have a version suffix
+            return $workflows | Where-Object { 
+                $_.name -like "*$pattern*" -and 
+                $_.name -match " v\d+\.\d+\.\d+$"
+            }
+        } else {
+            return $workflows | Where-Object { $_.name -like "*$pattern*" }
+        }
     }
     catch {
         Write-Error "Error getting workflows: $_"
@@ -113,11 +127,40 @@ function Remove-Workflow {
     }
 }
 
-# Function to deploy workflow
-function Deploy-Workflow {
+# Function to get workflow by name (without version)
+function Get-WorkflowByName {
     param (
         [string]$environment,
-        [string]$workflowFile,
+        [string]$workflowName
+    )
+    
+    $envConfig = $config.environments[$environment]
+    $headers = @{
+        "X-N8N-API-KEY" = $envConfig.apiKey
+        "Content-Type" = "application/json"
+    }
+
+    try {
+        $response = Invoke-RestMethod -Method Get -Uri "$($envConfig.baseUrl)/api/v1/workflows" -Headers $headers
+        $workflows = $response.data
+        
+        # Find workflow with matching name (ignoring version suffix)
+        return $workflows | Where-Object { 
+            $_.name -replace " v\d+\.\d+\.\d+$" -eq $workflowName
+        } | Select-Object -First 1
+    }
+    catch {
+        Write-Error "Error getting workflow by name: $_"
+        return $null
+    }
+}
+
+# Function to update workflow
+function Update-Workflow {
+    param (
+        [string]$environment,
+        [string]$workflowId,
+        [object]$workflowJson,
         [string]$version
     )
     
@@ -128,8 +171,52 @@ function Deploy-Workflow {
     }
 
     try {
-        # Read and update workflow JSON
+        # Update workflow name with version
+        $workflowJson.name = "$($workflowJson.name) v$version"
+        
+        # Update workflow
+        $response = Invoke-RestMethod -Method Put -Uri "$($envConfig.baseUrl)/api/v1/workflows/$workflowId" `
+            -Headers $headers `
+            -Body ($workflowJson | ConvertTo-Json -Depth 10)
+        
+        return $response.id
+    }
+    catch {
+        Write-Error "Error updating workflow: $_"
+        return $null
+    }
+}
+
+# Function to deploy workflow
+function Deploy-Workflow {
+    param (
+        [string]$environment,
+        [string]$workflowFile,
+        [string]$version,
+        [bool]$update = $false
+    )
+    
+    $envConfig = $config.environments[$environment]
+    $headers = @{
+        "X-N8N-API-KEY" = $envConfig.apiKey
+        "Content-Type" = "application/json"
+    }
+
+    try {
+        # Read workflow JSON
         $workflowJson = Get-Content -Path $workflowFile -Raw | ConvertFrom-Json
+        
+        if ($update) {
+            # Check if workflow exists
+            $existingWorkflow = Get-WorkflowByName -environment $environment -workflowName $workflowJson.name
+            
+            if ($existingWorkflow) {
+                Write-Host "Updating existing workflow: $($workflowJson.name)"
+                return Update-Workflow -environment $environment -workflowId $existingWorkflow.id -workflowJson $workflowJson -version $version
+            }
+        }
+        
+        # If not updating or workflow doesn't exist, create new
         $workflowJson.name = "$($workflowJson.name) v$version"
         
         # Deploy workflow
@@ -164,9 +251,13 @@ function Test-Workflow {
             -Headers $headers `
             -Body (@{ number = $testCase.number } | ConvertTo-Json)
 
-        $result = $response.square -eq $testCase.expected
+        $squareResult = $response.square -eq $testCase.expected
+        $cubeResult = $response.cube -eq $testCase.expectedCube
+        $result = $squareResult -and $cubeResult
+        
         Write-Host "Result: $(if ($result) { 'PASS' } else { 'FAIL' })"
-        Write-Host "Expected: $($testCase.expected), Got: $($response.square)"
+        Write-Host "Square - Expected: $($testCase.expected), Got: $($response.square)"
+        Write-Host "Cube - Expected: $($testCase.expectedCube), Got: $($response.cube)"
         
         return $result
     }
@@ -208,7 +299,7 @@ n8n Workflow Manager
 ===================
 
 1. Deploy and Test Workflow
-2. Cleanup Workflows
+2. Cleanup Deployed Workflows
 3. List Workflows
 4. Exit
 
@@ -224,11 +315,12 @@ function Start-Deployment {
         [string]$environment = $config.defaultEnvironment,
         [string]$workflowFile = $config.defaultWorkflowFile,
         [string]$version = $config.defaultVersion,
-        [bool]$autoMode = $false
+        [bool]$autoMode = $false,
+        [bool]$update = $false
     )
     
     Write-Host "Deploying workflow to $environment environment..."
-    $workflowId = Deploy-Workflow -environment $environment -workflowFile $workflowFile -version $version
+    $workflowId = Deploy-Workflow -environment $environment -workflowFile $workflowFile -version $version -update $update
 
     if ($workflowId) {
         Write-Host "Workflow deployed with ID: $workflowId"
@@ -274,14 +366,15 @@ function Start-Cleanup {
     Write-Host "Force: $force"
     Write-Host ""
 
-    $workflows = Get-Workflows -environment $environment -pattern $pattern
+    # Only get workflows that were deployed through this script (have version suffix)
+    $workflows = Get-Workflows -environment $environment -pattern $pattern -deployedOnly $true
 
     if ($workflows.Count -eq 0) {
-        Write-Host "No workflows found matching pattern '$pattern'"
+        Write-Host "No deployed workflows found matching pattern '$pattern'"
         return
     }
 
-    Write-Host "Found $($workflows.Count) workflow(s) matching pattern '$pattern':"
+    Write-Host "Found $($workflows.Count) deployed workflow(s) matching pattern '$pattern':"
     $workflows | ForEach-Object {
         Write-Host "- $($_.name) (ID: $($_.id))"
     }
@@ -314,10 +407,11 @@ function Start-Cleanup {
 function Show-Workflows {
     param (
         [string]$environment = $config.defaultEnvironment,
-        [string]$pattern = $config.defaultWorkflowPattern
+        [string]$pattern = $config.defaultWorkflowPattern,
+        [bool]$deployedOnly = $false
     )
     
-    $workflows = Get-Workflows -environment $environment -pattern $pattern
+    $workflows = Get-Workflows -environment $environment -pattern $pattern -deployedOnly $deployedOnly
     
     if ($workflows.Count -eq 0) {
         Write-Host "No workflows found matching pattern '$pattern'"
@@ -338,7 +432,8 @@ if ($args.Count -gt 0) {
             $environment = if ($args[1]) { $args[1] } else { $config.defaultEnvironment }
             $workflowFile = if ($args[2]) { $args[2] } else { $config.defaultWorkflowFile }
             $version = if ($args[3]) { $args[3] } else { $config.defaultVersion }
-            Start-Deployment -environment $environment -workflowFile $workflowFile -version $version -autoMode $true
+            $update = if ($args[4] -eq "true") { $true } else { $false }
+            Start-Deployment -environment $environment -workflowFile $workflowFile -version $version -autoMode $true -update $update
         }
         "cleanup" {
             $environment = if ($args[1]) { $args[1] } else { $config.defaultEnvironment }
@@ -350,7 +445,8 @@ if ($args.Count -gt 0) {
         "list" {
             $environment = if ($args[1]) { $args[1] } else { $config.defaultEnvironment }
             $pattern = if ($args[2]) { $args[2] } else { $config.defaultWorkflowPattern }
-            Show-Workflows -environment $environment -pattern $pattern
+            $deployedOnly = if ($args[3] -eq "true") { $true } else { $false }
+            Show-Workflows -environment $environment -pattern $pattern -deployedOnly $deployedOnly
         }
         default {
             Write-Host @"
@@ -362,20 +458,23 @@ Commands:
         Deploy and test a workflow
 
     cleanup [environment] [pattern] [dryRun] [force]
-        Clean up workflows matching pattern
+        Clean up deployed workflows matching pattern
 
-    list [environment] [pattern]
+    list [environment] [pattern] [deployedOnly]
         List workflows matching pattern
 
 Examples:
     # Deploy workflow
     .\n8n_workflow_manager.ps1 deploy dev workflow.json 1.0.0
 
-    # Cleanup workflows
+    # Cleanup deployed workflows
     .\n8n_workflow_manager.ps1 cleanup dev "Calculate Square" false true
 
-    # List workflows
+    # List all workflows
     .\n8n_workflow_manager.ps1 list dev "Calculate Square"
+
+    # List only deployed workflows
+    .\n8n_workflow_manager.ps1 list dev "Calculate Square" true
 "@
         }
     }
@@ -396,7 +495,10 @@ else {
                 $version = Read-Host "Enter version [$($config.defaultVersion)]"
                 if (-not $version) { $version = $config.defaultVersion }
                 
-                Start-Deployment -environment $environment -workflowFile $workflowFile -version $version
+                $update = Read-Host "Update existing workflow if found? (y/n) [n]"
+                if (-not $update) { $update = "n" }
+                
+                Start-Deployment -environment $environment -workflowFile $workflowFile -version $version -update ($update -eq "y")
             }
             "2" {
                 $environment = Read-Host "Enter environment (dev/staging/prod) [$($config.defaultEnvironment)]"
@@ -420,7 +522,10 @@ else {
                 $pattern = Read-Host "Enter workflow pattern [$($config.defaultWorkflowPattern)]"
                 if (-not $pattern) { $pattern = $config.defaultWorkflowPattern }
                 
-                Show-Workflows -environment $environment -pattern $pattern
+                $deployedOnly = Read-Host "Show only deployed workflows? (y/n) [n]"
+                if (-not $deployedOnly) { $deployedOnly = "n" }
+                
+                Show-Workflows -environment $environment -pattern $pattern -deployedOnly ($deployedOnly -eq "y")
             }
             "4" {
                 Write-Host "Exiting..."
