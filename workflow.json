@@ -1,0 +1,45 @@
+{
+  "name": "Calculate Square",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "calculate",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "WebhookNode",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "calculate"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Get the input number from the request\nconst input = $json.body;\nconst number = Number(input.number);\n\n// Validate input\nif (isNaN(number)) {\n  return [{ json: { \n    error: true,\n    message: \"Please provide a valid number in the 'number' field\"\n  } }];\n}\n\n// Calculate square\nconst square = number * number;\n\n// Return formatted response\nreturn [{ json: { \n  error: false,\n  input: number,\n  square: square,\n  message: `The square of ${number} is ${square}`\n} }];"
+      },
+      "id": "SetNode",
+      "name": "Calculate Square",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Calculate Square",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+} 
