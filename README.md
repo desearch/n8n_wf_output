@@ -174,25 +174,78 @@ A simplified script for quick webhook testing without deployment.
 
 ## Usage
 
-1. **Start n8n with Docker Compose**:
+### 1. Start n8n with Docker Compose
 ```bash
 docker-compose up -d
 ```
 
-2. **Deploy and Test Workflow**:
+### 2. Deploy and Test Workflow
+
+The script now supports multiple environments and test cases:
+
 ```powershell
+# Run with default settings (dev environment)
+powershell -ExecutionPolicy Bypass -File test_workflow.ps1
+
+# Run with specific environment
+$env:N8N_ENVIRONMENT = "staging"
 powershell -ExecutionPolicy Bypass -File test_workflow.ps1
 ```
 
-3. **Test Webhook Only**:
+### 3. Test Cases
+
+The script includes multiple test cases:
+- Positive integers
+- Zero
+- Negative numbers
+- Large numbers
+
+Each test case verifies:
+- Input validation
+- Correct calculation
+- Response format
+
+### 4. Environment Support
+
+The script supports multiple environments:
+- **dev**: Local development (http://localhost:5678)
+- **staging**: Staging environment
+- **prod**: Production environment
+
+To configure environments:
+1. Edit the `$environments` hash in `test_workflow.ps1`
+2. Set appropriate base URLs and API keys
+3. Use environment-specific credentials in `.env` files
+
+### 5. Workflow Versioning
+
+Workflows are automatically versioned:
+- Version format: `v1.0.0`
+- Version is appended to workflow name
+- Version can be specified in the script
+
+### 6. Automated Cleanup
+
+The script includes cleanup functionality:
+- Removes test workflows after testing
+- Can be disabled by commenting out cleanup section
+- Supports cleanup by workflow name pattern
+
+### 7. Test Webhook Only
 ```powershell
 powershell -ExecutionPolicy Bypass -File test_webhook.ps1
 ```
 
-4. **Test with Different Numbers**:
+### 8. Test with Different Numbers
 ```powershell
-# Modify $testNumber in test_workflow.ps1
-$testNumber = 7
+# Modify test cases in test_workflow.ps1
+$testCases = @(
+    @{
+        name = "Custom Test"
+        number = 7
+        expected = 49
+    }
+)
 ```
 
 ## Response Format
@@ -239,22 +292,23 @@ Error response:
    - Verify port availability: `netstat -ano | findstr :5678`
    - Check volume permissions: `docker volume inspect n8n_tutorial_n8n-data`
 
-2. **Webhook Not Responding**:
-   - Verify n8n container is running: `docker-compose ps`
-   - Check workflow activation status
-   - Ensure correct webhook path
-   - Verify port mapping: `docker-compose port n8n 5678`
+2. **Test Failures**:
+   - Check test case definitions
+   - Verify expected results
+   - Review workflow logic
+   - Check environment configuration
 
-3. **Authentication Errors**:
-   - Verify API key in `.env` file
-   - Check header format
+3. **Environment Issues**:
+   - Verify environment URLs
+   - Check API keys
    - Ensure proper permissions
-   - Verify environment variables: `docker-compose exec n8n env`
+   - Review network connectivity
 
-4. **Input Validation Errors**:
-   - Check request body format
-   - Verify number type conversion
-   - Ensure proper JSON structure
+4. **Cleanup Issues**:
+   - Check workflow naming patterns
+   - Verify API permissions
+   - Review error messages
+   - Check environment configuration
 
 ## License
 
