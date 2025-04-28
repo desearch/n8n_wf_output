@@ -1,59 +1,23 @@
-const axios = require('axios');
-const inquirer = require('inquirer');
+import HttpClient from '../http-client.js';
+// Remove config import as HttpClient handles config internally
+// import config from '../config.js'; 
 
-async function listWorkflows() {
-  try {
-    const answers = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'apiKey',
-        message: 'Enter n8n API key:',
-        validate: input => input ? true : 'API key is required'
-      },
-      {
-        type: 'input',
-        name: 'baseUrl',
-        message: 'Enter n8n base URL:',
-        default: 'http://localhost:5678',
-        validate: input => input ? true : 'Base URL is required'
-      }
-    ]);
+export async function listWorkflows(options) {
+    const httpClient = new HttpClient(); // Instantiate inside function
+    // The 'env' option is no longer needed for URL/key selection
+    // as HttpClient reads directly from process.env
+    try {
+        const response = await httpClient.get('/workflows');
 
-    const api = axios.create({
-      baseURL: answers.baseUrl,
-      headers: {
-        'X-N8N-API-KEY': answers.apiKey
-      }
-    });
-
-    const response = await api.get('/api/v1/workflows');
-    const workflows = response.data;
-
-    if (workflows.length === 0) {
-      console.log('No workflows found.');
-      return;
+        if (response.statusCode !== 200) {
+            // Attempt to get a more detailed error message
+            const errorMessage = response.data?.message || response.data || `Status Code ${response.statusCode}`;
+            throw new Error(`Failed to list workflows: ${errorMessage}`);
+        }
+        return response.data;
+    } catch (error) {
+        console.error("Error in listWorkflows:", error.message);
+        // Re-throw the error or handle it as appropriate
+        throw error;
     }
-
-    console.log('\n📋 Available Workflows:');
-    console.log('-------------------');
-    workflows.forEach(workflow => {
-      console.log(`\n🔹 Name: ${workflow.name}`);
-      console.log(`   ID: ${workflow.id}`);
-      console.log(`   Active: ${workflow.active ? '✅' : '❌'}`);
-      console.log(`   Created: ${new Date(workflow.createdAt).toLocaleString()}`);
-      console.log(`   Updated: ${new Date(workflow.updatedAt).toLocaleString()}`);
-      if (workflow.description) {
-        console.log(`   Description: ${workflow.description}`);
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Error listing workflows:', error.message);
-    if (error.response) {
-      console.error('Response:', error.response.data);
-    }
-    process.exit(1);
-  }
-}
-
-module.exports = { listWorkflows }; 
+} 

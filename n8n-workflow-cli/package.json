@@ -1,26 +1,46 @@
 {
   "name": "n8n-workflow-cli",
   "version": "1.0.0",
-  "description": "CLI tool for managing n8n workflow deployments",
-  "main": "index.js",
+  "description": "CLI tool for managing n8n workflows",
+  "type": "module",
+  "main": "workflow-manager.js",
   "bin": {
-    "n8n-workflow": "./index.js"
+    "n8n-workflow": "./workflow-manager.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node workflow-manager.js",
+    "test": "jest --config jest.config.cjs",
+    "test:watch": "jest --watch --config jest.config.cjs",
+    "test:unit": "jest --config jest.config.cjs tests/unit",
+    "test:integration": "jest --config jest.config.cjs tests/integration",
+    "test:real": "powershell -File scripts/test-stock-price.ps1",
+    "deploy-and-activate": "node scripts/deploy-and-activate.js"
   },
   "keywords": [
     "n8n",
     "workflow",
-    "automation",
-    "cli"
+    "cli",
+    "automation"
   ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "axios": "^1.6.7",
     "commander": "^11.1.0",
-    "fs-extra": "^11.2.0",
-    "inquirer": "^9.2.15"
+    "dotenv": "^16.5.0",
+    "fs-extra": "^11.0.1",
+    "inquirer": "8.2.6",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.10",
+    "@babel/plugin-syntax-import-meta": "^7.10.4",
+    "@babel/preset-env": "^7.26.9",
+    "babel-jest": "^29.7.0",
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }

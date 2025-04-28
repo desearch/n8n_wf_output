@@ -1,0 +1,21 @@
+{
+  "name": "Test Workflow",
+  "nodes": [
+    {
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "url": "https://api.example.com/test",
+        "method": "GET"
+      }
+    }
+  ],
+  "metadata": {
+    "testCases": [
+      {
+        "name": "Test Case 1",
+        "input": { "test": "value" },
+        "expectedOutput": { "result": "success" }
+      }
+    ]
+  }
+} 

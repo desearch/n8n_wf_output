@@ -1,0 +1,44 @@
+{
+  "name": "Updated Stock Price Tracker",
+  "nodes": [
+    {
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "url": "https://api.twelvedata.com/price",
+        "method": "GET",
+        "queryParameters": {
+          "symbol": "={{$json.symbol}}",
+          "apikey": "384095a28cb749779be4b4b77645d3ee"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "testCases": [
+      {
+        "name": "Valid Stock Symbol",
+        "input": { "symbol": "AAPL" },
+        "expectedOutput": {
+          "price": "*",
+          "symbol": "AAPL"
+        }
+      },
+      {
+        "name": "Invalid Stock Symbol",
+        "input": { "symbol": "INVALID" },
+        "expectedOutput": {
+          "code": 400,
+          "message": "Invalid symbol"
+        }
+      },
+      {
+        "name": "Empty Symbol",
+        "input": { "symbol": "" },
+        "expectedOutput": {
+          "code": 400,
+          "message": "Symbol is a required parameter"
+        }
+      }
+    ]
+  }
+} 

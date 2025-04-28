@@ -1,0 +1,73 @@
+environments:
+  dev:
+    baseUrl: "http://localhost:5678"
+    apiKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1MjYxMzEzMS04MDkzLTQzNTItODU3Yy1iNmFiNWUyYjA4YWYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzQ1Nzg1MDA1LCJleHAiOjE3NDgzMTg0MDB9.HD0cBJS9iEU4XZD3iVqJn_AkFJTRbXC98vK_DD0bDmI"
+    apiEndpoints:
+      workflows: "/api/v1/workflows"
+      webhook: "/webhook/calculate"
+  staging:
+    baseUrl: "http://staging.n8n.example.com"
+    apiKey: "your_staging_api_key"
+    apiEndpoints:
+      workflows: "/api/v1/workflows"
+      webhook: "/webhook/calculate"
+  prod:
+    baseUrl: "http://prod.n8n.example.com"
+    apiKey: "your_prod_api_key"
+    apiEndpoints:
+      workflows: "/api/v1/workflows"
+      webhook: "/webhook/calculate"
+
+defaultEnvironment: "dev"
+defaultWorkflowPattern: "Calculate Square"
+defaultWorkflowFile: "workflow.json"
+defaultWebhookPath: "calculate"
+defaultVersion: "1.0.0"
+
+testCases:
+  - name: "Positive Integer"
+    number: 5
+    expected: 25
+    expectedCube: 125
+  - name: "Zero"
+    number: 0
+    expected: 0
+    expectedCube: 0
+  - name: "Negative Number"
+    number: -3
+    expected: 9
+    expectedCube: -27
+  - name: "Large Number"
+    number: 1000
+    expected: 1000000
+    expectedCube: 1000000000
+
+dockerComposeTemplate:
+  version: '3.8'
+  services:
+    n8n:
+      image: 'n8nio/n8n'
+      ports: ['5678:5678']
+      environment:
+        N8N_HOST: 'localhost'
+        N8N_PORT: '5678'
+        N8N_PROTOCOL: 'http'
+        N8N_USER_MANAGEMENT_DISABLED: 'true'
+        N8N_BASIC_AUTH_ACTIVE: 'true'
+        N8N_BASIC_AUTH_USER: 'admin'
+        N8N_BASIC_AUTH_PASSWORD: 'password'
+      volumes: ['./n8n-data:/home/node/.n8n']
+
+gitignoreTemplate: |
+  node_modules/
+  n8n-data/
+  .env
+
+workflowTemplate:
+  nodes: []
+  connections: {}
+  settings:
+    executionOrder: "v1"
+    saveManualExecutions: false
+    callerPolicy: "workflowFromSameOwner"
+    errorWorkflow: "" 

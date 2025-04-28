@@ -1,78 +1,38 @@
-const fs = require('fs-extra');
-const path = require('path');
-const axios = require('axios');
-const inquirer = require('inquirer');
+import { readFileSync } from 'fs';
+import HttpClient from '../http-client.js';
 
-async function updateWorkflow(options) {
-  try {
-    const answers = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'id',
-        message: 'Enter workflow ID:',
-        default: options.id,
-        validate: input => input ? true : 'Workflow ID is required'
-      },
-      {
-        type: 'input',
-        name: 'file',
-        message: 'Enter updated workflow file path:',
-        default: options.file || 'workflow.json',
-        validate: async (input) => {
-          const filePath = path.resolve(input);
-          if (!await fs.pathExists(filePath)) {
-            return 'File does not exist';
-          }
-          return true;
-        }
-      },
-      {
-        type: 'input',
-        name: 'apiKey',
-        message: 'Enter n8n API key:',
-        validate: input => input ? true : 'API key is required'
-      },
-      {
-        type: 'input',
-        name: 'baseUrl',
-        message: 'Enter n8n base URL:',
-        default: 'http://localhost:5678',
-        validate: input => input ? true : 'Base URL is required'
-      }
-    ]);
-
-    const workflowData = await fs.readJson(path.resolve(answers.file));
-    
-    const api = axios.create({
-      baseURL: answers.baseUrl,
-      headers: {
-        'X-N8N-API-KEY': answers.apiKey
-      }
-    });
-
-    // Verify workflow exists
+export async function updateWorkflow(workflowId, filePath, env) {
+    const httpClient = new HttpClient();
+    // env is no longer needed for API details
+    if (!workflowId || !filePath) {
+        throw new Error('Workflow ID and file path are required for update.');
+    }
     try {
-      await api.get(`/api/v1/workflows/${answers.id}`);
+        // Read the new workflow file
+        const workflowData = JSON.parse(readFileSync(filePath, 'utf8'));
+
+        // Update the workflow using HttpClient
+        const response = await httpClient.put(`/workflows/${workflowId}`, workflowData);
+
+        if (response.statusCode !== 200) {
+            const errorMessage = response.data?.message || response.data || `Status Code ${response.statusCode}`;
+            throw new Error(`Failed to update workflow ${workflowId}: ${errorMessage}`);
+        }
+
+        console.log(`Workflow ${workflowId} updated successfully from ${filePath}.`);
+        return response.data; // Return the response data (often the updated workflow object)
+
     } catch (error) {
-      if (error.response && error.response.status === 404) {
-        console.error(`❌ Workflow with ID ${answers.id} not found`);
-        process.exit(1);
-      }
-      throw error;
+        // Handle file read errors separately if needed
+        if (error instanceof SyntaxError) {
+            console.error(`Error parsing JSON from file ${filePath}:`, error.message);
+            throw new Error(`Invalid JSON format in file ${filePath}.`);
+        } else if (error.code === 'ENOENT') {
+             console.error(`Error reading file ${filePath}:`, error.message);
+            throw new Error(`Workflow file not found at path: ${filePath}`);
+        }
+        // Handle API errors
+        console.error(`Error updating workflow ${workflowId}:`, error.message);
+        throw new Error(`Failed to update workflow ${workflowId}: ${error.message}`);
     }
-
-    // Update workflow
-    await api.put(`/api/v1/workflows/${answers.id}`, workflowData);
-    console.log(`✅ Workflow "${workflowData.name}" updated successfully!`);
-    console.log(`🔗 n8n URL: ${answers.baseUrl}`);
-
-  } catch (error) {
-    console.error('❌ Error updating workflow:', error.message);
-    if (error.response) {
-      console.error('Response:', error.response.data);
-    }
-    process.exit(1);
-  }
 }
-
-module.exports = { updateWorkflow }; 

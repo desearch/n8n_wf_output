@@ -1,0 +1,21 @@
+{
+  "name": "Updated Test Workflow",
+  "nodes": [
+    {
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "url": "https://api.example.com/updated",
+        "method": "GET"
+      }
+    }
+  ],
+  "metadata": {
+    "testCases": [
+      {
+        "name": "Updated Test Case",
+        "input": { "test": "updated" },
+        "expectedOutput": { "result": "updated" }
+      }
+    ]
+  }
+} 

@@ -1,0 +1,51 @@
+{
+  "name": "simple-workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f8d13797-6e6a-4312-9bc2-5d295eafc760",
+      "name": "When clicking ‘Test workflow’"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        220,
+        0
+      ],
+      "id": "ed0c8231-3e38-4859-8946-6a9c93517c72",
+      "name": "No Operation, do nothing"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f4ec02c9-6685-4c64-8065-e132671568c6",
+  "meta": {
+    "instanceId": "6a3312040807ce17b832ed655efdeb9593c4ad5de1e707789a692439ccc7a3f5"
+  },
+  "id": "31DpRk8VjOZvLFh1",
+  "tags": []
+}

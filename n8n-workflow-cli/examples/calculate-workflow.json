@@ -1,0 +1,44 @@
+{
+  "id": null,
+  "name": "Calculate Square and Cube",
+  "active": false,
+  "nodes": [
+    {
+      "id": "webhook-node",
+      "parameters": {
+        "path": "calculate",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "id": "code-node",
+      "parameters": {
+        "jsCode": "// Get input number\nconst number = $input.first().json.number;\n\n// Calculate square and cube\nconst square = number * number;\nconst cube = number * number * number;\n\n// Return results\nreturn {\n  json: {\n    square,\n    cube\n  }\n};"
+      },
+      "name": "Calculate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [450, 300]
+    }
+  ],
+  "connections": {
+    "webhook-node": {
+      "main": [
+        [
+          {
+            "node": "code-node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "tags": ["test", "calculation"],
+  "triggerCount": 1
+} 

@@ -1,0 +1,74 @@
+{
+  "name": "Stock Price Tracker",
+  "nodes": [
+    {
+      "id": "webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "stock-price",
+        "options": {}
+      }
+    },
+    {
+      "id": "httpRequest",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 300],
+      "parameters": {
+        "url": "https://api.twelvedata.com/price",
+        "method": "GET",
+        "authentication": "queryAuth",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "symbol",
+              "value": "={{$input.item.json.symbol}}"
+            },
+            {
+              "name": "apikey",
+              "value": "={{$env.TWELVEDATA_API_KEY}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "function",
+      "type": "n8n-nodes-base.function",
+      "position": [650, 300],
+      "parameters": {
+        "functionCode": "const response = $input.item.json;\nconst symbol = $input.item.json.symbol;\n\nif (!response.price) {\n  throw new Error(`No price data found for symbol ${symbol}`);\n}\n\nreturn {\n  json: {\n    symbol: symbol,\n    price: response.price,\n    timestamp: new Date().toISOString(),\n    source: 'twelvedata'\n  }\n};"
+      }
+    }
+  ],
+  "connections": {
+    "webhook": {
+      "main": [
+        [
+          {
+            "node": "httpRequest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "httpRequest": {
+      "main": [
+        [
+          {
+            "node": "function",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowFromSameOwner",
+    "errorWorkflow": ""
+  }
+} 
